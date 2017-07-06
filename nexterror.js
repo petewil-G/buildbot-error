@@ -1,15 +1,20 @@
-var errorcount = 0;
-var failurecount = 0;
-var warningcount = 0;
+var errorCount = 0;
+var failureCount = 0;
+var warningCount = 0;
+
+// One based index of the next item to jump to.
+var errorIndex = 0;
+var failureIndex = 0;
+var warningIndex = 0;
 
 function doParse() {
-  var next_error = 1;
-  var next_warning = 1;
-  var next_failure = 1;
+  var nextError = 1;
+  var nextWarning = 1;
+  var nextFailure = 1;
   // When using logdog, the errors are in individual divs under the "logs" div.
   var logs = document.getElementById('logs');
   var divs = logs.getElementsByClassName(
-    "log-entry-chunk style-scope logdog-stream-view");
+    'log-entry-chunk style-scope logdog-stream-view');
   // GCC errors look like this:
   // /.../dtoa/dtoa.c:2550: warning: comparison between signed and unsigned
   var kGCCErrorRE = new RegExp('^[^ :]+:\\d+: ', 'gm');
@@ -37,29 +42,29 @@ function doParse() {
         // insert the anchor tag. Hence the [^>] at the front of the regexp.
         div.innerHTML = div.innerHTML.replace(
             /[^>](error:|error (C|LNK)[0-9][0-9][0-9][0-9])/,
-            '<a name=error' + next_error + '></a>' +
+            '<a name=error' + nextError + '></a>' +
                 '<b><font color=red>$1</font></b>');
         if (div.innerHTML.length != length) {
-          ++next_error;
+          ++nextError;
           continue;
         }
 
         // Check for warnings.
         div.innerHTML = div.innerHTML.replace(/[^>](warning:)/,
-                                                '<a name=warning' + next_warning + '></a>' +
+                                                '<a name=warning' + nextWarning + '></a>' +
                                                 '<b><font color=red>$1</font></b>');
         if (div.innerHTML.length != length) {
-          ++next_warning;
+          ++nextWarning;
           continue;
         }
 
         // Check for unit test failures.
         div.innerHTML = div.innerHTML.replace(
             /[^>]\[  FAILED  \]/,
-            '\r<a name=failure' + next_failure + '></a>' +
+            '\r<a name=failure' + nextFailure + '></a>' +
                 '<b><font color=red>[  FAILED  ]</font></b>');
         if (div.innerHTML.length != length) {
-          ++next_failure;
+          ++nextFailure;
           continue;
         }
 
@@ -73,115 +78,79 @@ function doParse() {
       while (true) {
         var length = div.innerHTML.length;
         div.innerHTML = div.innerHTML.replace(kMakeRE,
-                                                '<a name=error' + next_error + '></a>' +
+                                                '<a name=error' + nextError + '></a>' +
                                                 '<b><font color=red>$1</font></b>');
         if (div.innerHTML.length != length) {
-          ++next_error;
+          ++nextError;
           continue;
         }
         break;
       }
     }
   }
-  errorcount = next_error - 1;
-  failurecount = next_failure - 1;
-  warningcount = next_warning - 1;
+  // Set the global found counts for each type of problem.
+  errorCount = nextError - 1;
+  failureCount = nextFailure - 1;
+  warningCount = nextWarning - 1;
 
-  if (errorcount == 0)
-    document.getElementById('nextErrorButton').value = "no errors";
-  if (warningcount == 0)
-    document.getElementById('nextWarningButton').value = "no warnings";
-  if (failurecount == 0)
-    document.getElementById('nextFailureButton').value = "no faliures";
+  // Adjust the button text to reflect findings.
+  document.getElementById('nextErrorButton').value = errorButtonLabel();
+  document.getElementById('nextWarningButton').value = warningButtonLabel();
+  document.getElementById('nextFailureButton').value = failureButtonLabel();
 }
 
-function currentErrorIndex() {
-  var hash = document.location.hash;
-  if (!hash)
-    return 0;
+function errorButtonLabel() {
+  if (errorCount == 0)
+    return 'no errors';
+  else if (errorIndex == 0)
+    return 'Next error (' + errorCount + ' found)';
   else
-    return parseInt(hash.substr('#error'.length));
+    return 'Error ' + errorIndex + '/' + errorCount;
 }
 
-// Returns the one-based index of current faliure.
-function currentFailureIndex() {
-  var hash = document.location.hash;
-  if (!hash)
-    return 0;
+function failureButtonLabel() {
+  if (failureCount == 0)
+    return 'no failures';
+  else if (failureIndex == 0)
+    return 'Next failure (' + failureCount + ' found)';
   else
-    return parseInt(hash.substr('#failure'.length));
+    return 'Failure ' + failureIndex + '/' + failureCount;
 }
 
-// Returns the one-based index of current warning.
-function currentWarningIndex() {
-  var hash = document.location.hash;
-  if (!hash)
-    return 0;
+function warningButtonLabel() {
+  if (warningCount == 0)
+    return 'no warnings';
+  else if (warningIndex == 0)
+    return 'Next warning (' + warningCount + ' found)';
   else
-    return parseInt(hash.substr('#warning'.length));
-}
-
-function errorButtonLabel(index) {
-  if (errorcount == 0)
-    return 'Find Errors';
-  else if (index == 0)
-    return 'Next error (' + errorcount + ' found)';
-  else
-    return 'Error ' + index + '/' + errorcount;
-}
-
-function failureButtonLabel(index) {
-  if (failurecount == 0)
-    return 'Find Failures';
-  else if (index == 0)
-    return 'Next failure (' + failurecount + ' found)';
-  else
-    return 'Failure ' + index + '/' + failurecount;
-}
-
-function warningButtonLabel(index) {
-  if (warningcount == 0)
-    return 'Find Warnings';
-  else if (index == 0)
-    return 'Next warning (' + warningcount + ' found)';
-  else
-    return 'Warning ' + index + '/' + warningcount;
+    return 'Warning ' + warningIndex + '/' + warningCount;
 }
 
 function nextError() {
-  if (errorcount == 0 && failurecount == 0 && warningcount == 0)
+  if (errorCount == 0 && failureCount == 0 && warningCount == 0)
     doParse();
-  var index = currentErrorIndex();
-  if (++index > errorcount || isNaN(index))
-    index = 1;
-  document.location.hash = 'error' + index;
-  document.getElementById('nextErrorButton').value = errorButtonLabel(index);
-  if (errorcount == 0)
-    document.getElementById('nextErrorButton').value = "no errors";
+  if (++errorIndex > errorCount)
+    errorIndex = 1;
+  document.location.hash = 'error' + errorIndex;
+  document.getElementById('nextErrorButton').value = errorButtonLabel();
 }
 
 function nextFailure() {
-  if (errorcount == 0 && failurecount == 0 && warningcount == 0)
+  if (errorCount == 0 && failureCount == 0 && warningCount == 0)
     doParse();
-  var index = currentFailureIndex();
-  if (++index > failurecount || isNaN(index))
-    index = 1;
-  document.location.hash = 'failure' + index;
-  document.getElementById('nextFailureButton').value = failureButtonLabel(index);
-  if (failurecount == 0)
-    document.getElementById('nextFailureButton').value = "no faliures";
+  if (++failureIndex > failureCount)
+    failureIndex = 1;
+  document.location.hash = 'failure' + failureIndex;
+  document.getElementById('nextFailureButton').value = failureButtonLabel();
 }
 
 function nextWarning() {
-  if (errorcount == 0 && failurecount == 0 && warningcount == 0)
+  if (errorCount == 0 && failureCount == 0 && warningCount == 0)
     doParse();
-  var index = currentWarningIndex();
-  if (++index > warningcount || isNaN(index))
-    index = 1;
-  document.location.hash = 'warning' + index;
-  document.getElementById('nextWarningButton').value = warningButtonLabel(index);
-  if (warningcount == 0)
-    document.getElementById('nextWarningButton').value = "no warnings";
+  if (++warningIndex > warningCount)
+    warningIndex = 1;
+  document.location.hash = 'warning' + warningIndex;
+  document.getElementById('nextWarningButton').value = warningButtonLabel();
 }
 
 function createButton(id, label, handler) {
@@ -205,13 +174,13 @@ span.style.right = 0;
 span.style.top = 0;
 
 span.appendChild(createButton('nextFailureButton',
-                              failureButtonLabel(currentFailureIndex()),
+                              'Find failures',
                               nextFailure));
 span.appendChild(createButton('nextWarningButton',
-                              warningButtonLabel(currentWarningIndex()),
+                              'Find warnings',
                               nextWarning));
 span.appendChild(createButton('nextErrorButton',
-                              errorButtonLabel(currentErrorIndex()),
+                              'Find errors',
                               nextError));
 document.body.appendChild(span);
 
