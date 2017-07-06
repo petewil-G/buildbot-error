@@ -156,6 +156,8 @@ function nextError() {
     index = 1;
   document.location.hash = 'error' + index;
   document.getElementById('nextErrorButton').value = errorButtonLabel(index);
+  if (errorcount == 0)
+    document.getElementById('nextErrorButton').value = "no errors";
 }
 
 function nextFailure() {
@@ -166,6 +168,8 @@ function nextFailure() {
     index = 1;
   document.location.hash = 'failure' + index;
   document.getElementById('nextFailureButton').value = failureButtonLabel(index);
+  if (failurecount == 0)
+    document.getElementById('nextFailureButton').value = "no faliures";
 }
 
 function nextWarning() {
@@ -176,6 +180,8 @@ function nextWarning() {
     index = 1;
   document.location.hash = 'warning' + index;
   document.getElementById('nextWarningButton').value = warningButtonLabel(index);
+  if (warningcount == 0)
+    document.getElementById('nextWarningButton').value = "no warnings";
 }
 
 function createButton(id, label, handler) {
