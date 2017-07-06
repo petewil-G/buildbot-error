@@ -1,40 +1,48 @@
 var errorcount = 0;
+var failurecount = 0;
 
 function doParse() {
   var next_error = 1;
   var next_warning = 1;
-  var spans = document.getElementsByTagName('span');
+  // When using logdog, the errors are in individual divs under the "logs" div.
+  var logs = document.getElementById('logs');
+  var divs = logs.getElementsByTagName('div');
   // /.../dtoa/dtoa.c:2550: warning: comparison between signed and unsigned
   var kGCCErrorRE = new RegExp('^[^ :]+:\\d+: ', 'gm');
   var kPathRE = new RegExp('^/b/slave/(mac|linux|linux_view)/build/src/(.*)$', 'gm');
   var kPathWinRE = new RegExp('[a-zA-Z]:\\\\b\\\\slave\\\\([^\\\\]*)\\\\build\\\\src\\\\(.*)$', 'gm');
   var kMakeRE = new RegExp('^(make: \\*\\*\\* .* Error.*)', 'gm');
-  for (var i = 0; i < spans.length; ++i) {
-    var span = spans[i];
-    if (span.innerHTML.match('error:') ||  // Mac style.
-        span.innerHTML.match('error (C|LNK)[0-9][0-9][0-9][0-9]') ||  // Windows style.
-        span.innerHTML.match(kGCCErrorRE)) {
-      span.innerHTML = span.innerHTML.replace(kPathRE, '...<b>$2</b>');
-      span.innerHTML = span.innerHTML.replace(kPathWinRE, '...<b>$2</b>');
+  for (var i = 0; i < divs.length; ++i) {
+    var div = divs[i];
+    if (div.innerHTML.match('error:') ||  // Mac style.
+        div.innerHTML.match('error (C|LNK)[0-9][0-9][0-9][0-9]') ||  // Windows style.
+        div.innerHTML.match(kGCCErrorRE) ||
+        div.innerHTML.match('^\[  FAILED  \]')) {
+      div.innerHTML = div.innerHTML.replace(kPathRE, '...<b>$2</b>');
+      div.innerHTML = div.innerHTML.replace(kPathWinRE, '...<b>$2</b>');
       while (true) {
         // Don't use createElement/insertBefore because the error message could be in
-        // in the middle of a large span, and we want the anchor right here.
-        var length = span.innerHTML.length;
+        // in the middle of a large div, and we want the anchor right here.
+        var length = div.innerHTML.length;
         // We insert an anchor before the error message and if we don't exclude
         // errors/warnings with </a> in front this will loop forever, trying to
         // insert the anchor tag. Hence the [^>] at the front of the regexp.
-        span.innerHTML = span.innerHTML.replace(/[^>](error:|error (C|LNK)[0-9][0-9][0-9][0-9])/,
+        div.innerHTML = div.innerHTML.replace(/[^>](error:|error (C|LNK)[0-9][0-9][0-9][0-9])/,
                                                 '<a name=error' + next_error + '></a>' +
-                                                '<font color=red>$1</font>');
-        if (span.innerHTML.length != length) {
+                                              '<b><font color=red>$1</font></b>');
+        div.innerHTML = div.innerHTML.replace(/[^>]\[  FAILED  \]/,
+                                                '<a name=error' + next_error + '></a>' +
+                                                '<b><font color=red>DERP^[  FAILED  ]DERP</font></b>');
+        if (div.innerHTML.length != length) {
           ++next_error;
+          // TODO: solve the recursion problem for test failures.
           continue;
         }
 
-        span.innerHTML = span.innerHTML.replace(/[^>](warning:)/,
+        div.innerHTML = div.innerHTML.replace(/[^>](warning:)/,
                                                 '<a name=warning' + next_warning + '></a>' +
                                                 '<font color=red>$1</font>');
-        if (span.innerHTML.length != length) {
+        if (div.innerHTML.length != length) {
           ++next_warning;
           continue;
         }
@@ -43,14 +51,14 @@ function doParse() {
         break;
       }
     }
-    if (span.innerHTML.match(kMakeRE)) {
-      span.innerHTML = span.innerHTML.replace(kPathWinRE, '...<b>$2</b>');
+    if (div.innerHTML.match(kMakeRE)) {
+      div.innerHTML = div.innerHTML.replace(kPathWinRE, '...<b>$2</b>');
       while (true) {
-        var length = span.innerHTML.length;
-        span.innerHTML = span.innerHTML.replace(kMakeRE,
+        var length = div.innerHTML.length;
+        div.innerHTML = div.innerHTML.replace(kMakeRE,
                                                 '<a name=error' + next_error + '></a>' +
                                                 '<font color=red>$1</font>');
-        if (span.innerHTML.length != length) {
+        if (div.innerHTML.length != length) {
           ++next_error;
           continue;
         }
@@ -61,25 +69,41 @@ function doParse() {
   errorcount = next_error - 1;
 }
 
-function doSanitize() {
-  var kSanitizeREs = [
-    [ /^[0-9]+&gt;/gm, '' ],
-    [ /^(distcc.*)|(Check dependencies.*)|(    setenv .*)|(    cd .*)|(make: Nothing to be done.*)|(    \/Developer\/usr\/bin\/.*)|(    \/Developer\/Library\/PrivateFrameworks\/DevToolsCore.framework.*)|(    \/Developer\/Library\/Xcode\/Plug-ins\/CoreBuildTasks.xcplugin\/.*)|(python scripts\/rule_binding.py.*)|(The operation completed successfully\.)$/gm, '' ],
-    [ /^Distributed-CompileC (.*) normal i386 c\+\+ com\.apple\.compilers\.gcc\.4_2.*$/gm, '    CC $1' ],
-    [ /^CompileC (.*) normal i386 c\+\+ com\.apple\.compilers\.gcc\.4_2.*$/gm, '    CC $1' ],
-  ];
+function doParseFailures() {
+  var next_failure = 1;
+  // When using logdog, the errors are in individual divs under the "logs" div.
+  var logs = document.getElementById('logs');
+  var divs = logs.getElementsByTagName('div');;
+  for (var i = 0; i < divs.length; ++i) {
+    var div = divs[i];
+    if (div.innerHTML.match('^\[  FAILED  \]')) {
+      while (true) {
+        // Don't use createElement/insertBefore because the error message could be in
+        // in the middle of a large div, and we want the anchor right here.
+        var length = div.innerHTML.length;
+        // We insert an anchor before the error message and if we don't exclude
+        // errors/warnings with </a> in front this will loop forever, trying to
+        // insert the anchor tag. Hence the [^>] at the front of the regexp.
+        div.innerHTML = div.innerHTML.replace(/[^>]\[  FAILED  \]/,
+                                                '<a name=failure' + next_failure + '></a>' +
+                                                '<b><font color=red>DERP^[  FAILED  ]DERP</font></b>');
+        if (div.innerHTML.length != length) {
+          ++next_failure;
+          // TODO: solve the recursion problem for test failures, then back to continue.
+          break;
+          // continue;
+        }
 
-  var spans = document.getElementsByTagName('span');
-  for (var i = 0; i < spans.length; ++i) {
-    var span = spans[i];
-    for (var j = 0; j < kSanitizeREs.length; ++j) {
-      span.innerHTML = span.innerHTML.replace(kSanitizeREs[j][0], kSanitizeREs[j][1]);
+        // If we get here, there's nothing left to replace.
+        break;
+      }
     }
-    // Clean up any extra spurrious newlines introduced by the substitutions.
-    span.innerHTML = span.innerHTML.replace(/^\s*$[\n\r]{1,}/gm, '');
   }
+
+  failurecount = next_failure - 1;
 }
 
+// TODO: Maybe change name to currentErrorIndex() (and others as well)
 // Returns the one-based index of current error.
 function currentIndex() {
   var hash = document.location.hash;
@@ -89,21 +113,51 @@ function currentIndex() {
     return parseInt(hash.substr('#error'.length));
 }
 
+// Returns the one-based index of current faliure.
+function currentFailureIndex() {
+  var hash = document.location.hash;
+  if (!hash)
+    return 0;
+  else
+    return parseInt(hash.substr('#failure'.length));
+}
+
 function buttonLabel(index) {
   if (errorcount == 0)
-    return 'Error: ?';
+    return 'Find Errors';
   else if (index == 0)
     return 'Next error (' + errorcount + ' found)';
   else
     return 'Error ' + index + '/' + errorcount;
 }
 
+function failureButtonLabel(index) {
+  if (failurecount == 0)
+    return 'Find Failures';
+  else if (index == 0)
+    return 'Next failure (' + failurecount + ' found)';
+  else
+    return 'Failure ' + index + '/' + failurecount;
+}
+
 function nextError() {
+  if (errorcount == 0)
+    doParse();
   var index = currentIndex();
   if (++index > errorcount || isNaN(index))
     index = 1;
   document.location.hash = 'error' + index;
   document.getElementById('nextErrorButton').value = buttonLabel(index);
+}
+
+function nextFailure() {
+  if (failurecount == 0)
+    doParseFailures();
+  var index = currentFailureIndex();
+  if (++index > failurecount || isNaN(index))
+    index = 1;
+  document.location.hash = 'failure' + index;
+  document.getElementById('nextFailureButton').value = failureButtonLabel(index);
 }
 
 function createButton(id, label, handler) {
@@ -116,15 +170,21 @@ function createButton(id, label, handler) {
   return button;
 }
 
-doParse();
+// TODO: We need to wait until the logs are loaded before parsing.
+// Currently we wait for a button press, can we catch an event intstead?
+// doParse();
 
-var div = document.createElement('div');
-div.style.position = 'fixed';
-div.style.right = 0;
-div.style.top = 0;
+var span = document.createElement('span');
+span.style.position = 'fixed';
+span.style.right = 0;
+span.style.top = 0;
 
-div.appendChild(createButton('sanitizeButton', 'Sanitize log', doSanitize));
-div.appendChild(createButton('nextErrorButton', buttonLabel(currentIndex()), nextError));
+span.appendChild(createButton('nextFailureButton',
+                              failureButtonLabel(currentFailureIndex()),
+                              nextFailure));
+span.appendChild(createButton('nextErrorButton',
+                              buttonLabel(currentIndex()),
+                              nextError));
 
-document.body.appendChild(div);
+document.body.appendChild(span);
 

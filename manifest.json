@@ -5,15 +5,13 @@
   "content_scripts": [
     {
       "matches": [
-        "https://build.chromium.org/*/builders/*/builds/*/steps/*compile*/logs/stdio*",
-        "https://*.corp.google.com/*/builders/*/builds/*/steps/*compile*/logs/stdio*"
+        "https://luci-logdog.appspot.com/*"
       ],
       "js": ["nexterror.js"]
     },
     {
       "matches": [
-        "https://build.chromium.org/*/builders/*/builds/*/steps/*/logs/stdio*",
-        "https://*.corp.google.com/*/builders/*/builds/*/steps/*/logs/stdio*"
+        "https://luci-logdog.appspot.com/*"
       ],
       "js": ["gtest.js"]
     }
@@ -22,5 +20,5 @@
     "48": "48.png",
     "128": "128.png"
   },
-  "manifest_version": 2
+  "manifest_version": 3
 }
