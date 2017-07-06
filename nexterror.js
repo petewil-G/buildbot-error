@@ -6,7 +6,8 @@ function doParse() {
   var next_warning = 1;
   // When using logdog, the errors are in individual divs under the "logs" div.
   var logs = document.getElementById('logs');
-  var divs = logs.getElementsByTagName('div');
+  var divs = logs.getElementsByClassName(
+    "log-entry-chunk style-scope logdog-stream-view");
   // /.../dtoa/dtoa.c:2550: warning: comparison between signed and unsigned
   var kGCCErrorRE = new RegExp('^[^ :]+:\\d+: ', 'gm');
   var kPathRE = new RegExp('^/b/slave/(mac|linux|linux_view)/build/src/(.*)$', 'gm');
@@ -16,8 +17,7 @@ function doParse() {
     var div = divs[i];
     if (div.innerHTML.match('error:') ||  // Mac style.
         div.innerHTML.match('error (C|LNK)[0-9][0-9][0-9][0-9]') ||  // Windows style.
-        div.innerHTML.match(kGCCErrorRE) ||
-        div.innerHTML.match('^\[  FAILED  \]')) {
+        div.innerHTML.match(kGCCErrorRE)) {
       div.innerHTML = div.innerHTML.replace(kPathRE, '...<b>$2</b>');
       div.innerHTML = div.innerHTML.replace(kPathWinRE, '...<b>$2</b>');
       while (true) {
@@ -30,12 +30,8 @@ function doParse() {
         div.innerHTML = div.innerHTML.replace(/[^>](error:|error (C|LNK)[0-9][0-9][0-9][0-9])/,
                                                 '<a name=error' + next_error + '></a>' +
                                               '<b><font color=red>$1</font></b>');
-        div.innerHTML = div.innerHTML.replace(/[^>]\[  FAILED  \]/,
-                                                '<a name=error' + next_error + '></a>' +
-                                                '<b><font color=red>DERP^[  FAILED  ]DERP</font></b>');
         if (div.innerHTML.length != length) {
           ++next_error;
-          // TODO: solve the recursion problem for test failures.
           continue;
         }
 
@@ -73,10 +69,11 @@ function doParseFailures() {
   var next_failure = 1;
   // When using logdog, the errors are in individual divs under the "logs" div.
   var logs = document.getElementById('logs');
-  var divs = logs.getElementsByTagName('div');;
+  var divs = logs.getElementsByClassName(
+    "log-entry-chunk style-scope logdog-stream-view");
   for (var i = 0; i < divs.length; ++i) {
     var div = divs[i];
-    if (div.innerHTML.match('^\[  FAILED  \]')) {
+    if (div.innerHTML.match('\[\ \ FAILED\ \ \]')) {
       while (true) {
         // Don't use createElement/insertBefore because the error message could be in
         // in the middle of a large div, and we want the anchor right here.
@@ -85,13 +82,11 @@ function doParseFailures() {
         // errors/warnings with </a> in front this will loop forever, trying to
         // insert the anchor tag. Hence the [^>] at the front of the regexp.
         div.innerHTML = div.innerHTML.replace(/[^>]\[  FAILED  \]/,
-                                                '<a name=failure' + next_failure + '></a>' +
-                                                '<b><font color=red>DERP^[  FAILED  ]DERP</font></b>');
+                                                '\r<a name=failure' + next_failure + '></a>' +
+                                                '<b><font color=red>[  FAILED  ]</font></b>');
         if (div.innerHTML.length != length) {
           ++next_failure;
-          // TODO: solve the recursion problem for test failures, then back to continue.
-          break;
-          // continue;
+          continue;
         }
 
         // If we get here, there's nothing left to replace.
