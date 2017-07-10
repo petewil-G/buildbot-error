@@ -2,7 +2,7 @@ var errorCount = 0;
 var failureCount = 0;
 var warningCount = 0;
 
-// One based index of the next item to jump to.
+// One based index of the currently focused problem item
 var errorIndex = 0;
 var failureIndex = 0;
 var warningIndex = 0;
@@ -133,6 +133,7 @@ function nextError() {
     errorIndex = 1;
   document.location.hash = 'error' + errorIndex;
   document.getElementById('nextErrorButton').value = errorButtonLabel();
+  window.scrollBy(0, -50);
 }
 
 function nextFailure() {
@@ -142,6 +143,7 @@ function nextFailure() {
     failureIndex = 1;
   document.location.hash = 'failure' + failureIndex;
   document.getElementById('nextFailureButton').value = failureButtonLabel();
+  window.scrollBy(0, -50);
 }
 
 function nextWarning() {
@@ -151,6 +153,7 @@ function nextWarning() {
     warningIndex = 1;
   document.location.hash = 'warning' + warningIndex;
   document.getElementById('nextWarningButton').value = warningButtonLabel();
+  window.scrollBy(0, -50);
 }
 
 function createButton(id, label, handler) {
