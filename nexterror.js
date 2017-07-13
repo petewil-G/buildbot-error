@@ -7,10 +7,27 @@ var errorIndex = 0;
 var failureIndex = 0;
 var warningIndex = 0;
 
+function delayedParse() {
+  // Don't start parsing unless we are done loading the logs
+  var statusBar = document.getElementById('status-bar');
+  var displayStyle = getComputedStyle(statusBar, null).display;
+  // If we are still loading, check again in half a second.
+  if (displayStyle != 'none') {
+    window.setTimeout(delayedParse, 500);
+    return;
+  }
+  // If the status bar has been hidden, it is safe to start parsing.
+  doParse();
+}
+
 function doParse() {
   var nextError = 1;
   var nextWarning = 1;
   var nextFailure = 1;
+
+  var statusLabel = document.getElementById('buildbotErrorStatusLabel');
+  statusLabel.innerHTML = 'BuildbotError: Parsing errors and faiures...';
+
   // When using logdog, the errors are in individual divs under the "logs" div.
   var logs = document.getElementById('logs');
   var divs = logs.getElementsByClassName(
@@ -41,9 +58,9 @@ function doParse() {
         // errors/warnings with </a> in front this will loop forever, trying to
         // insert the anchor tag. Hence the [^>] at the front of the regexp.
         div.innerHTML = div.innerHTML.replace(
-            /[^>](error:|error (C|LNK)[0-9][0-9][0-9][0-9])/,
-            '<a name=error' + nextError + '></a>' +
-                '<b><font color=red>$1</font></b>');
+            /([^>])(error:|error (C|LNK)[0-9][0-9][0-9][0-9])/,
+            '$1<a name=error' + nextError + '>' +
+                '<b><font color=red>$2</font></b></a>');
         if (div.innerHTML.length != length) {
           ++nextError;
           continue;
@@ -51,8 +68,8 @@ function doParse() {
 
         // Check for warnings.
         div.innerHTML = div.innerHTML.replace(/[^>](warning:)/,
-                                                '<a name=warning' + nextWarning + '></a>' +
-                                                '<b><font color=red>$1</font></b>');
+                                                '<a name=warning' + nextWarning + '>' +
+                                                '<b><font color=red>$1</font></b></a>');
         if (div.innerHTML.length != length) {
           ++nextWarning;
           continue;
@@ -60,8 +77,8 @@ function doParse() {
 
         // Check for unit test failures.
         div.innerHTML = div.innerHTML.replace(
-            /[^>]\[  FAILED  \]/,
-            '\r<a name=failure' + nextFailure + '></a>' +
+            /([^>])\[  FAILED  \]/,
+            '$1<a name=failure' + nextFailure + '></a>' +
                 '<b><font color=red>[  FAILED  ]</font></b>');
         if (div.innerHTML.length != length) {
           ++nextFailure;
@@ -78,8 +95,8 @@ function doParse() {
       while (true) {
         var length = div.innerHTML.length;
         div.innerHTML = div.innerHTML.replace(kMakeRE,
-                                                '<a name=error' + nextError + '></a>' +
-                                                '<b><font color=red>$1</font></b>');
+                                                '<a name=error' + nextError + '>' +
+                                                '<b><font color=red>$1</font></b></a>');
         if (div.innerHTML.length != length) {
           ++nextError;
           continue;
@@ -93,68 +110,117 @@ function doParse() {
   failureCount = nextFailure - 1;
   warningCount = nextWarning - 1;
 
-  // Adjust the button text to reflect findings.
-  document.getElementById('nextErrorButton').value = errorButtonLabel();
-  document.getElementById('nextWarningButton').value = warningButtonLabel();
-  document.getElementById('nextFailureButton').value = failureButtonLabel();
+  // Update the UI when parsing is complete
+  var span = document.getElementById('buildbotErrorSpan');
+  var statusLabel = document.getElementById('buildbotErrorStatusLabel');
+  span.removeChild(statusLabel);
+  statusLabel.innerHTML = '';
+
+  // Once we have results, add buttons.
+  span.appendChild(createButton('buildbotErrorPreviousFailureButton',
+                                previousFailureButtonLabel(),
+                                previousFailureClicked));
+  span.appendChild(createButton('buildbotErrorNextFailureButton',
+                                nextFailureButtonLabel(),
+                                nextFailureClicked));
+  span.appendChild(createButton('buildbotErrorPreviousErrorButton',
+                                previousErrorButtonLabel(),
+                                previousErrorClicked));
+  span.appendChild(createButton('buildbotErrorNextErrorButton',
+                                nextErrorButtonLabel(),
+                                nextErrorClicked));
 }
 
-function errorButtonLabel() {
+function nextErrorButtonLabel() {
   if (errorCount == 0)
     return 'no errors';
   else if (errorIndex == 0)
     return 'Next error (' + errorCount + ' found)';
   else
-    return 'Error ' + errorIndex + '/' + errorCount;
+    return 'Next Error ' + errorIndex + '/' + errorCount;
 }
 
-function failureButtonLabel() {
+function previousErrorButtonLabel() {
+  if (errorCount == 0)
+    return 'no errors';
+  else if (errorIndex == 0)
+    return 'Previous error (' + errorCount + ' found)';
+  else
+    return 'Previous Error ' + errorIndex + '/' + errorCount;
+}
+
+function nextFailureButtonLabel() {
   if (failureCount == 0)
     return 'no failures';
   else if (failureIndex == 0)
     return 'Next failure (' + failureCount + ' found)';
   else
-    return 'Failure ' + failureIndex + '/' + failureCount;
+    return 'Next Failure ' + failureIndex + '/' + failureCount;
 }
 
-function warningButtonLabel() {
-  if (warningCount == 0)
-    return 'no warnings';
-  else if (warningIndex == 0)
-    return 'Next warning (' + warningCount + ' found)';
+function previousFailureButtonLabel() {
+  if (failureCount == 0)
+    return 'no failures';
+  else if (failureIndex == 0)
+    return 'Previous failure (' + failureCount + ' found)';
   else
-    return 'Warning ' + warningIndex + '/' + warningCount;
+    return 'Previous Failulre ' + failureIndex + '/' + failureCount;
 }
 
-function nextError() {
-  if (errorCount == 0 && failureCount == 0 && warningCount == 0)
-    doParse();
+function nextErrorClicked() {
+  if (errorCount == 0)
+    return;
   if (++errorIndex > errorCount)
     errorIndex = 1;
   document.location.hash = 'error' + errorIndex;
-  document.getElementById('nextErrorButton').value = errorButtonLabel();
-  window.scrollBy(0, -50);
+  document.getElementById('buildbotErrorNextErrorButton').value =
+    nextErrorButtonLabel();
+  document.getElementById('buildbotErrorPreviousErrorButton').value =
+     previousErrorButtonLabel();
+  window.scrollBy(0, -75);
 }
 
-function nextFailure() {
-  if (errorCount == 0 && failureCount == 0 && warningCount == 0)
-    doParse();
+function previousErrorClicked() {
+  if (errorCount == 0)
+    return;
+  if (--errorIndex < 1)
+    errorIndex = errorCount;
+
+  document.location.hash = 'error' + errorIndex;
+  document.getElementById('buildbotErrorNextErrorButton').value =
+    nextErrorButtonLabel();
+  document.getElementById('buildbotErrorPreviousErrorButton').value =
+    previousErrorButtonLabel();
+  window.scrollBy(0, -75);
+}
+
+function nextFailureClicked() {
+  if (failureCount == 0)
+    return;
   if (++failureIndex > failureCount)
     failureIndex = 1;
   document.location.hash = 'failure' + failureIndex;
-  document.getElementById('nextFailureButton').value = failureButtonLabel();
-  window.scrollBy(0, -50);
+  document.getElementById('buildbotErrorNextFailureButton').value =
+    nextFailureButtonLabel();
+  document.getElementById('buildbotErrorPreviousFailureButton').value =
+    previousFailureButtonLabel();
+  window.scrollBy(0, -75);
 }
 
-function nextWarning() {
-  if (errorCount == 0 && failureCount == 0 && warningCount == 0)
-    doParse();
-  if (++warningIndex > warningCount)
-    warningIndex = 1;
-  document.location.hash = 'warning' + warningIndex;
-  document.getElementById('nextWarningButton').value = warningButtonLabel();
-  window.scrollBy(0, -50);
+
+function previousFailureClicked() {
+  if (failureCount == 0)
+    return;
+  if (--failureIndex < 1)
+    failureIndex = failureCount;
+  document.location.hash = 'failure' + failureIndex;
+  document.getElementById('buildbotErrorNextFailureButton').value =
+    nextFailureButtonLabel();
+  document.getElementById('buildbotErrorPreviousFailureButton').value =
+    previousFailureButtonLabel();
+  window.scrollBy(0, -75);
 }
+
 
 function createButton(id, label, handler) {
   var button = document.createElement('input');
@@ -166,24 +232,37 @@ function createButton(id, label, handler) {
   return button;
 }
 
+function createStatusLabel() {
+  var label = document.createElement('LABEL');
+  label.innerHTML = 'BuildbotError: Waiting for logs to load...';
+  label.id = 'buildbotErrorStatusLabel';
+  label.style.cssFloat = 'right';
+  return label;
+}
+
 // TODO: We need to wait until the logs are loaded before parsing.
 // Currently we wait for a button press, can we catch an event intstead?
 // div id status-bar hidden?  class "style-scope logdog-stream-view" hidden?
 // doParse();
-
 var span = document.createElement('span');
 span.style.position = 'fixed';
 span.style.right = 0;
 span.style.top = 0;
+span.id = 'buildbotErrorSpan';
 
-span.appendChild(createButton('nextFailureButton',
-                              'Find failures',
-                              nextFailure));
-span.appendChild(createButton('nextWarningButton',
-                              'Find warnings',
-                              nextWarning));
-span.appendChild(createButton('nextErrorButton',
-                              'Find errors',
-                              nextError));
+// TODO: Don't show the buttons until parsing is done.  Instead, label saying
+// "waiting for logs to load", or "parsing errors"
+var statusLabel = createStatusLabel();
+span.appendChild(statusLabel);
+
 document.body.appendChild(span);
 
+
+// Ideas to wait for logs
+// 1. See if the model object is a global, I can add an event listener for
+//    the stream status callback.
+// 2. Look at the streamView, get the statusBar from it. If the status bar is
+//    gone, we are set.  If not, we can maybe loop until it is, or set an event
+//    watching for it.
+// 3. See if we get a polymer "changed" event for the statusBar.
+delayedParse();
