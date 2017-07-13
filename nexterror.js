@@ -35,13 +35,16 @@ function doParse() {
   // GCC errors look like this:
   // /.../dtoa/dtoa.c:2550: warning: comparison between signed and unsigned
   var kGCCErrorRE = new RegExp('^[^ :]+:\\d+: ', 'gm');
-  var kPathRE = new RegExp('^/b/slave/(mac|linux|linux_view)/build/src/(.*)$', 'gm');
-  var kPathWinRE = new RegExp('[a-zA-Z]:\\\\b\\\\slave\\\\([^\\\\]*)\\\\build\\\\src\\\\(.*)$', 'gm');
+  var kPathRE =
+      new RegExp('^/b/slave/(mac|linux|linux_view)/build/src/(.*)$', 'gm');
+  var kPathWinRE =
+      new RegExp(
+        '[a-zA-Z]:\\\\b\\\\slave\\\\([^\\\\]*)\\\\build\\\\src\\\\(.*)$', 'gm');
   var kMakeRE = new RegExp('^(make: \\*\\*\\* .* Error.*)', 'gm');
   for (var i = 0; i < divs.length; ++i) {
     var div = divs[i];
     if (div.innerHTML.match('error:') ||  // Mac style.
-        div.innerHTML.match('error (C|LNK)[0-9][0-9][0-9][0-9]') ||  // Windows style.
+        div.innerHTML.match('error (C|LNK)[0-9][0-9][0-9][0-9]') ||  // Windows.
         div.innerHTML.match(kGCCErrorRE) ||
         div.innerHTML.match('\[\ \ FAILED\ \ \]')) {
       // Clean up file paths pointing to the trybot file system.
@@ -67,9 +70,10 @@ function doParse() {
         }
 
         // Check for warnings.
-        div.innerHTML = div.innerHTML.replace(/[^>](warning:)/,
-                                                '<a name=warning' + nextWarning + '>' +
-                                                '<b><font color=red>$1</font></b></a>');
+        div.innerHTML =
+            div.innerHTML.replace(/[^>](warning:)/,
+                                  '<a name=warning' + nextWarning + '>' +
+                                  '<b><font color=red>$1</font></b></a>');
         if (div.innerHTML.length != length) {
           ++nextWarning;
           continue;
@@ -94,9 +98,10 @@ function doParse() {
       div.innerHTML = div.innerHTML.replace(kPathWinRE, '...<b>$2</b>');
       while (true) {
         var length = div.innerHTML.length;
-        div.innerHTML = div.innerHTML.replace(kMakeRE,
-                                                '<a name=error' + nextError + '>' +
-                                                '<b><font color=red>$1</font></b></a>');
+        div.innerHTML =
+          div.innerHTML.replace(kMakeRE,
+              '<a name=error' + nextError + '>' +
+              '<b><font color=red>$1</font></b></a>');
         if (div.innerHTML.length != length) {
           ++nextError;
           continue;
@@ -105,6 +110,7 @@ function doParse() {
       }
     }
   }
+
   // Set the global found counts for each type of problem.
   errorCount = nextError - 1;
   failureCount = nextFailure - 1;
@@ -240,7 +246,7 @@ function createStatusLabel() {
   return label;
 }
 
-// TODO: We need to wait until the logs are loaded before parsing.
+// We need to wait until the logs are loaded before parsing.
 // Currently we wait for a button press, can we catch an event intstead?
 // div id status-bar hidden?  class "style-scope logdog-stream-view" hidden?
 // doParse();
@@ -250,19 +256,10 @@ span.style.right = 0;
 span.style.top = 0;
 span.id = 'buildbotErrorSpan';
 
-// TODO: Don't show the buttons until parsing is done.  Instead, label saying
-// "waiting for logs to load", or "parsing errors"
 var statusLabel = createStatusLabel();
 span.appendChild(statusLabel);
 
 document.body.appendChild(span);
 
-
-// Ideas to wait for logs
-// 1. See if the model object is a global, I can add an event listener for
-//    the stream status callback.
-// 2. Look at the streamView, get the statusBar from it. If the status bar is
-//    gone, we are set.  If not, we can maybe loop until it is, or set an event
-//    watching for it.
-// 3. See if we get a polymer "changed" event for the statusBar.
+// Start waiting for the logs to be done loading, then parse when they are.
 delayedParse();
