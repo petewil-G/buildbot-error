@@ -1,18 +1,24 @@
 {
   "name": "BuildBot Error 2",
-  "version": "13",
+  "version": "14",
   "description": "Skip through errors and failures in buildbot output.",
   "content_scripts": [
     {
       "matches": [
-        "https://luci-logdog.appspot.com/*"
+        "*://logs.chromium.org/*",
+        "*://luci-logdog.appspot.com/*"
       ],
-      "js": ["nexterror.js"]
+      "js": ["nexterror.js"],
+      "run_at": "document_idle"
     }
   ],
   "icons": {
     "48": "48.png",
     "128": "128.png"
   },
+  "permissions": [
+    "*://logs.chromium.org/*",
+    "*://luci-logdog.appspot.com/*"
+  ],
   "manifest_version": 2
 }

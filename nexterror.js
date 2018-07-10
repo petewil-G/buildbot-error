@@ -1,3 +1,6 @@
+console.log("Buildbot error 2 starting nexterror.js");
+
+
 var errorCount = 0;
 var failureCount = 0;
 var warningCount = 0;
@@ -263,3 +266,4 @@ document.body.appendChild(span);
 
 // Start waiting for the logs to be done loading, then parse when they are.
 delayedParse();
+
